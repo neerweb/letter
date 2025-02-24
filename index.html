@@ -1,0 +1,288 @@
+<!--
+MADE BY AMIR 
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Valentine's Love Letter Generator ❤️</title>
+	<link rel="stylesheet" href="style.css">
+	<!-- Google Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Great+Vibes&display=swap" rel="stylesheet">
+	<script src="https://kit.fontawesome.com/3edc9f5ef9.js" crossorigin="anonymous"></script>
+</head>
+<body>
+	<div class="confetti-container"></div>  <!-- For confetti effect -->
+	<header>
+		<h1 class="header-title"><i class="fas fa-heart header-icon"></i> A Valentine's Letter For You <i class="fas fa-heart header-icon"></i></h1>
+		<p class="subtitle">Crafted with care and a touch of AI magic.</p>
+		<div class="hearts-header"></div> <!-- Container for floating hearts -->
+	</header>
+
+	<main>
+		<section id="input-section">
+			<div class="input-group">
+				<label for="recipientName">To <span class="label-heart"><i class="fas fa-heart"></i></span></label>
+				<input type="text" id="recipientName" placeholder="My Beloved">
+			</div>
+			<div class="input-group">
+				<label for="senderName">From <span class="label-heart"><i class="fas fa-heart"></i></span></label>
+				<input type="text" id="senderName" placeholder="Your Secret Admirer">
+			</div>
+			<div class="input-group">
+				<label for="letterTone">Tone <span class="label-heart"><i class="fas fa-heart"></i></span></label>
+				<select id="letterTone">
+					<option value="romantic" selected>Romantic</option>
+					<option value="sweet">Sweet</option>
+					<option value="funny">Funny</option>
+					<option value="poetic">Poetic</option>
+					<option value="passionate">Passionate</option>
+				</select>
+			</div>
+			<div class="input-group">
+				<label for="letterLength">Length <span class="label-heart"><i class="fas fa-heart"></i></span></label>
+				<select id="letterLength">
+					<option value="short" selected>Short</option>
+					<option value="medium">Medium</option>
+					<option value="long">Long</option>
+				</select>
+			</div>
+			<div class="button-row">
+				<button id="generateButton">Generate Letter <i class="fas fa-wand-magic-sparkles"></i></button>
+				<button id="regenerateButton" class="secondary-button" style="display:none;">Regenerate <i class="fas fa-redo-alt"></i></button>
+			</div>
+		</section>
+
+		<section id="letter-output-section">
+		  <div class="envelope">
+			<div id="letterCard">
+			  <div class="beating-border"></div>
+				<div id="letterContent">
+					<p class="placeholder-text">Enter names, choose options, and click "Generate Letter" to create your personalized message.</p>
+				</div>
+				<div class="letter-heart"></div> <!-- Heart for the letter -->
+			</div>
+			<div class="envelope-back"></div>
+		  </div>
+			<div id="button-container">
+				<button id="copyButton">Copy <i class="fas fa-clipboard"></i></button>
+			</div>
+		</section>
+	</main>
+	<footer> 
+		<p class="credits">Crafted with ❤️ by Amir. Powered by Google's Gemini API.</p>
+	</footer>
+	<script>
+		const API_KEY = "AIzaSyBC4B9KfsJcrkozJTF2WWt2gjLfjgRN440";
+
+		/* DO NOT ABUSE MY API KEY, IF YOU DO, I'LL STOP DELIVERY FOOD!
+													---- Amir ----
+		*/
+
+		const generateButton = document.getElementById('generateButton');
+		const regenerateButton = document.getElementById('regenerateButton');
+		const letterContent = document.getElementById('letterContent');
+		const recipientNameInput = document.getElementById('recipientName');
+		const senderNameInput = document.getElementById('senderName');
+		const letterToneSelect = document.getElementById('letterTone');
+		const letterLengthSelect = document.getElementById('letterLength');
+		const copyButton = document.getElementById('copyButton');
+		const placeholderText = document.querySelector('#letterContent .placeholder-text');
+		const letterCard = document.getElementById('letterCard');
+		const envelope = document.querySelector('.envelope');
+
+		let lastPrompt = "";
+		let isGenerating = false; // Flag to track generation status
+
+		async function animateText(textChunk) {
+			for (let char of textChunk) {
+				letterContent.textContent += char;
+				updateLetterCardSize();
+				await new Promise(resolve => setTimeout(resolve, 15));
+			}
+		}
+
+		function updateLetterCardSize() {
+			const contentHeight = letterContent.scrollHeight;
+			letterCard.style.height = `${contentHeight}px`;
+			envelope.style.height = `${contentHeight + 84}px`; // 84px for padding
+		}
+
+		async function streamLoveLetter(prompt, isRegenerate = false) {
+			if (isGenerating) return; // Prevent concurrent generation
+			isGenerating = true;
+
+			// Disable buttons and change text
+			generateButton.disabled = true;
+			generateButton.innerHTML = 'Generating... <i class="fas fa-spinner fa-spin"></i>';
+			regenerateButton.disabled = true;
+			regenerateButton.style.display = 'none';
+
+			letterContent.textContent = "";
+			letterContent.style.height = 'auto';  // Reset height
+			envelope.style.height = 'auto';
+			letterContent.textContent = isRegenerate ? "Generating a new letter... please wait." : "Generating your love letter... please wait.";
+			placeholderText.style.display = 'none';
+
+			// Use Gemini 2.0 Flash to generate letter.
+			const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${API_KEY}`;
+			const systemInstructionText = isRegenerate
+				? "You are a highly creative and original Valentine's Day love letter writer. When regenerating, prioritize uniqueness and originality."
+				: "You are a highly creative and original Valentine's Day love letter writer. Craft a heartfelt and romantic Valentine's Day love letter.";
+
+			const requestBody = {
+				contents: [{ role: "user", parts: [{ text: isRegenerate ? "Generate a Valentine's Day love letter:\n\n" + prompt : prompt }] }],
+				generationConfig: { temperature: isRegenerate ? 1.3 : 1.0, topK: 40, topP: 0.95, maxOutputTokens: 8192, responseMimeType: "text/plain" },
+				systemInstruction: { parts: [{ text: systemInstructionText }] }
+			};
+
+			try {
+				const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
+				if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+				const reader = response.body.getReader();
+				const decoder = new TextDecoder();
+				let partialLine = "";
+
+				letterContent.textContent = ""; // Clear "Generating..." message
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) {
+						//console.log("Stream finished.");
+						break;
+					}
+
+					const chunk = decoder.decode(value);
+					const lines = (partialLine + chunk).split('\n');
+					partialLine = lines.pop() || "";
+
+					for (const line of lines) {
+						if (line.trim() === "") continue;
+						let jsonLine = line;
+						if (line.startsWith("data: ")) jsonLine = line.substring(5);
+
+						try {
+							const sseData = JSON.parse(jsonLine);
+							const textChunk = sseData?.candidates?.[0]?.content?.parts?.[0]?.text;
+							if (textChunk) await animateText(textChunk);
+							else console.warn("No text found in SSE data:", sseData);
+						} catch (e) {
+							console.error("Error parsing SSE line:", line, e);
+							letterContent.textContent += " [JSON_PARSE_ERROR] ";
+						}
+					}
+				}
+
+				if (partialLine.trim() !== "") console.warn("Warning: Last partial line was not processed:", partialLine);
+				reader.releaseLock();
+
+			} catch (error) {
+				console.error("Fetch error:", error);
+				letterContent.textContent = ` [FETCH_ERROR: ${error.message}] `;
+				placeholderText.style.display = 'block';
+
+			} finally {
+				isGenerating = false;
+				generateButton.disabled = false;
+				generateButton.innerHTML = 'Generate Letter <i class="fas fa-wand-magic-sparkles"></i>';
+				regenerateButton.disabled = false;
+				if (letterContent.textContent.includes("[FETCH_ERROR")){
+				regenerateButton.style.display = 'none';
+				}
+				else{
+				regenerateButton.style.display = 'inline-flex';
+				}
+			}
+		}
+
+		function createConfetti(container) {
+			const confetti = document.createElement('div');
+			confetti.classList.add('confetti');
+			confetti.style.left = `${Math.random() * 100}%`;
+			confetti.style.animationDelay = `${Math.random() * 5}s`;
+			container.appendChild(confetti);
+			confetti.addEventListener('animationend', () => { confetti.remove(); });
+		}
+
+		function createHeart(container) {
+			const heart = document.createElement('div');
+			heart.classList.add('heart');
+			heart.innerHTML = '<i class="fas fa-heart"></i>';
+
+			const startX = Math.random() * 100;
+			const startY = Math.random() * 20 + 80;
+			const size = Math.random() * 20 + 10;
+			const animationDuration = Math.random() * 5 + 3;
+
+			heart.style.left = `${startX}%`;
+			heart.style.top = `${startY}%`;
+			heart.style.fontSize = `${size}px`;
+			heart.style.animationDuration = `${animationDuration}s`;
+			heart.style.animationDelay = `${Math.random() * 3}s`;
+
+			container.appendChild(heart);
+			heart.addEventListener('animationend', () => { heart.remove(); });
+		}
+
+		generateButton.addEventListener('click', () => {
+			const recipientName = recipientNameInput.value.trim();
+			const senderName = senderNameInput.value.trim();
+			const letterTone = letterToneSelect.value;
+			const letterLength = letterLengthSelect.value;
+
+			let prompt = `Write a Valentine's Day love letter that is ${letterTone} in tone and ${letterLength} in length.`;
+
+			if (recipientName) prompt += ` Address it to ${recipientName}.`; else prompt += " Address it to 'My Love'.";
+			if (senderName) prompt += ` It is from ${senderName}.`;
+
+			prompt += " Make it very heartfelt and suitable for Valentine's Day.";
+			lastPrompt = prompt;
+
+			streamLoveLetter(prompt, false);
+		});
+
+		regenerateButton.addEventListener('click', () => {
+			if (!lastPrompt) { alert("Please generate a letter first before regenerating."); return; }
+			streamLoveLetter(lastPrompt, true);
+		});
+
+		copyButton.addEventListener('click', () => {
+			const letterText = letterContent.textContent;
+
+			if (navigator.clipboard && navigator.clipboard.writeText) {
+				navigator.clipboard.writeText(letterText).then(() => {
+					alert('Love letter copied to clipboard!');
+				}).catch(err => {
+					console.error('Failed to copy text: ', err);
+					const range = document.createRange();
+					range.selectNode(letterContent);
+					window.getSelection().removeAllRanges();
+					window.getSelection().addRange(range);
+					alert('Failed to copy letter to clipboard.\nPlease copy the letter text manually (select and copy).');
+				});
+			} else {
+				const range = document.createRange();
+				range.selectNode(letterContent);
+				window.getSelection().removeAllRanges();
+				window.getSelection().addRange(range);
+				alert('Clipboard access not supported on your browser.\nPlease copy the letter text manually (select and copy).');
+			}
+		});
+
+		document.addEventListener('DOMContentLoaded', () => {
+			const confettiContainer = document.querySelector('.confetti-container');
+			for (let i = 0; i < 150; i++) { createConfetti(confettiContainer); }
+
+			const heartsHeader = document.querySelector('.hearts-header');
+			for (let i = 0; i < 30; i++) { createHeart(heartsHeader); }
+
+			letterCard.classList.add('letter-displayed');
+		});
+	</script>
+</body>
+</html>
